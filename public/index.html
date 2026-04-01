@@ -118,6 +118,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
 .leg-perp{background:#60a5fa}
 .leg-opt{background:#22c55e}
 .leg-comb{background:var(--accent)}
+.leg-be{color:var(--accent);font-weight:600}
 .scenario{margin-top:12px;padding:12px;background:var(--bg-2);border-radius:6px}
 .scenario label{font-size:11px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
 .scenario-price{font-size:18px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;margin:4px 0}
@@ -238,6 +239,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
           <div class="leg"><div class="leg-c leg-perp"></div>Perp Only</div>
           <div class="leg"><div class="leg-c leg-opt"></div>Options Only</div>
           <div class="leg"><div class="leg-c leg-comb"></div>Combined</div>
+          <div class="leg leg-be" id="legBE">Breakeven: —</div>
         </div>
         <div class="scenario">
           <label>Price Scenario</label>
@@ -475,9 +477,26 @@ function initChart() {
       responsive:true,maintainAspectRatio:false,
       interaction:{intersect:false,mode:'index'},
       plugins:{legend:{display:false},tooltip:{backgroundColor:'#181824',titleColor:'#eeeef2',bodyColor:'#9999a8',borderColor:'#2a2a3a',borderWidth:1,padding:10,cornerRadius:6,callbacks:{label:c=>{const v=c.parsed.y;return c.dataset.label+': '+fmt$(v);}}}},
+      layout:{padding:{bottom:2}},
       scales:{x:{grid:{color:'#1a1a2a'},ticks:{color:'#55556a',maxTicksLimit:8,font:{size:10}}},y:{grid:{color:'#1a1a2a'},ticks:{color:'#55556a',font:{size:10},callback:v=>fmt$(v)}}},
       animation:{duration:300}
-    }
+    },
+    plugins: [{
+      id:'beLine',
+      afterDatasetsDraw(chart){
+        if(chart._beX==null)return;
+        const {ctx,scales:{x,y}}=chart;
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([6,4]);
+        ctx.strokeStyle='#c9a227';
+        ctx.lineWidth=1.5;
+        ctx.moveTo(chart._beX,y.top);
+        ctx.lineTo(chart._beX,y.bottom);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }]
   });
 }
 
@@ -486,11 +505,24 @@ function updateChart() {
   const base=S.currentPrice||S.entry;
   const lo=base*0.6,hi=base*1.4,steps=60;
   const labels=[],perp=[],opt=[],comb=[];
+  let beIdx=null;
   for(let i=0;i<=steps;i++){
     const p=lo+(hi-lo)*(i/steps);
     labels.push('$'+Math.round(p).toLocaleString());
     const r=calcPnl(p);
     perp.push(r.perpPnl); opt.push(r.optPnl); comb.push(r.combined);
+    if(beIdx===null&&i>0){
+      const prev=comb[i-1];
+      if((prev<0&&comb[i]>=0)||(prev>=0&&comb[i]<0))beIdx=i;
+    }
+  }
+  if(beIdx!==null){
+    chart._beX=chart.scales.x.getPixelForValue(chart.data.labels[beIdx]);
+    const bePrice=lo+(hi-lo)*(beIdx/steps);
+    $('legBE').textContent='Breakeven: $'+Math.round(bePrice).toLocaleString();
+  } else {
+    chart._beX=null;
+    $('legBE').textContent='Breakeven: —';
   }
   chart.data.labels=labels;
   chart.data.datasets[0].data=perp;
