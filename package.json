@@ -1,0 +1,10 @@
+{
+  "name": "hypercall-hedge-simulator",
+  "version": "1.0.0",
+  "description": "Community dashboard for simulating perp hedges with Hypercall options",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  }
+}
