@@ -167,7 +167,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
       <h1>Hedge Simulator</h1>
     </div>
     <div class="hdr-price">
-      <span style="color:var(--t2)">BTC</span>
+      <span style="color:var(--t2)" id="hdrAsset">BTC</span>
       <span class="val" id="livePrice">—</span>
     </div>
     <div class="hdr-status">
@@ -184,6 +184,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
           <select id="inAsset">
             <option value="BTC">BTC — Bitcoin</option>
             <option value="ETH">ETH — Ethereum</option>
+            <option value="HYPE">HYPE — Hyperliquid</option>
+            <option value="US500">US500 — S&P 500</option>
+            <option value="USOIL">USOIL — Crude Oil</option>
           </select>
         </div>
         <div class="fg">
@@ -454,6 +457,7 @@ function updateAll() {
 }
 
 function updateLivePrice() {
+  $('hdrAsset').textContent=S.asset;
   if(S.currentPrice)$('livePrice').textContent='$'+S.currentPrice.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
@@ -774,7 +778,7 @@ function renderTrades() {
   }).join('');
 }
 
-$('inAsset').addEventListener('change',e=>{S.asset=e.target.value;S.options=[];S.selected.clear();S.trades=[];renderOptions();renderTrades();updateAll();});
+$('inAsset').addEventListener('change', async e=>{S.asset=e.target.value;S.options=[];S.selected.clear();S.trades=[];renderOptions();renderTrades();try{const data=await fetchJSON('options-summary',{currency:S.asset});if(data.result&&data.result[0]&&data.result[0].underlying_price){S.currentPrice=parseFloat(data.result[0].underlying_price);S.entry=Math.round(S.currentPrice);$('inEntry').value=S.entry;updateLivePrice();}}catch(e){}updateAll();});
 $('inSize').addEventListener('input',e=>{S.size=parseFloat(e.target.value)||0;updateAll();});
 $('inEntry').addEventListener('input',e=>{S.entry=parseFloat(e.target.value)||0;updateAll();});
 
