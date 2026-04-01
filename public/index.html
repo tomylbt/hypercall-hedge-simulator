@@ -334,6 +334,12 @@ function moneyness(strike,spot,type) {
   return strike<spot?'otm':'itm';
 }
 
+function resetScenario() {
+  $('scenarioSlider').value=50;
+  S.scenarioPrice=null;
+  $('scenarioPrice').textContent='$'+Math.round(S.currentPrice||S.entry).toLocaleString();
+  $('legBE').textContent='Breakeven: —';
+}
 function setDir(d) {
   S.dir=d;
   $('btnLong').className=d==='long'?'on long':'long';
@@ -384,7 +390,7 @@ async function loadOptions() {
     const expSet=new Set(S.options.map(o=>o.expiration_timestamp));
     S.expiries=[...expSet].sort((a,b)=>a-b);
     S.expiry=S.expiries[0]||null;
-    renderExpiryTabs(); renderOptions(); updateAll();
+    renderExpiryTabs(); renderOptions(); updateAll(); resetScenario();
     line.className='api-line ok';
     line.textContent='Loaded '+S.options.length+' options · BTC $'+(S.currentPrice?.toLocaleString()||'?');
   } catch(e) {
@@ -422,6 +428,7 @@ function renderOptions() {
   }
   el.innerHTML=filtered.slice(0,30).map(o=>{
     const sel=S.selected.has(o.instrument_name)?' sel':'';
+    if(sel){const live=S.selected.get(o.instrument_name);if(live)live.option=o;}
     const m=moneyness(o.strike,spot,o.type);
     const isCall=o.type==='call';
     return '<div class="opt'+sel+'" onclick="toggleOpt(\''+o.instrument_name+'\')"><div class="opt-left"><div class="opt-icon '+(isCall?'c':'p')+'">'+(isCall?'C':'P')+'</div><div><div class="opt-name">'+(isCall?'Call':'Put')+' $'+o.strike.toLocaleString()+'<span class="opt-tag '+m+'">'+m.toUpperCase()+'</span></div><div class="opt-exp">'+fmtExpiryStr(o.expStr)+'</div></div></div><div class="opt-right"><div class="opt-bid">'+fmtPrice(o.bid_price)+'</div><div class="opt-ask">Ask: '+fmtPrice(o.ask_price)+'</div></div></div>';
