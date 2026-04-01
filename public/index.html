@@ -137,6 +137,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
 .whale-sym{color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:11px}
 .whale-sz{font-weight:600;font-family:'JetBrains Mono',monospace}
 .whale-time{color:var(--t3);font-size:10px}
+.whale-under{font-weight:700;font-size:10px;padding:1px 6px;border-radius:3px;margin-right:4px}
+.whale-under.BTC{background:rgba(201,162,39,0.15);color:var(--accent)}
+.whale-under.ETH{background:rgba(96,165,250,0.12);color:#60a5fa}
+.whale-under.HYPE{background:rgba(168,85,247,0.12);color:#a855f7}
+.whale-under.US500{background:rgba(34,197,94,0.12);color:#22c55e}
+.whale-under.USOIL{background:rgba(249,115,22,0.12);color:#f97316}
+.whale-inst{font-weight:600;font-size:11px}
+.whale-inst.call{color:var(--green)}
+.whale-inst.put{color:var(--red)}
+.whale-notional{color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;margin-left:6px}
+.whale-filter{display:flex;gap:4px;margin-bottom:8px}
+.whale-ftog{padding:3px 8px;border:1px solid var(--border);border-radius:4px;font-size:10px;font-weight:600;color:var(--t2);background:transparent;cursor:pointer;font-family:inherit}
+.whale-ftog:hover{border-color:var(--t3)}
+.whale-ftog.on{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
 .empty{display:flex;flex-direction:column;align-items:center;padding:32px 16px;text-align:center;color:var(--t3)}
 .empty-icon{font-size:32px;margin-bottom:8px;opacity:.5}
 .empty-t{font-size:13px;font-weight:600;color:var(--t2);margin-bottom:4px}
@@ -245,6 +259,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
           <span class="card-t">Whale Trades</span>
           <span class="badge" id="whaleCount">0</span>
         </div>
+        <div class="whale-filter">
+          <button class="whale-ftog on" id="wAll" onclick="setWhaleFilter('all')">All Trades</button>
+          <button class="whale-ftog" id="wBig" onclick="setWhaleFilter('whales')">Whales Only (&gt;$10K)</button>
+        </div>
         <div class="whale-feed" id="whaleFeed">
           <div class="empty">
             <div class="empty-icon">🐋</div>
@@ -263,7 +281,7 @@ const S = {
   asset: 'BTC', dir: 'long', size: 1, entry: 68000,
   currentPrice: null, options: [], selected: new Map(),
   filter: 'auto', expiry: null, expiries: [],
-  scenarioPrice: null, trades: [],
+  scenarioPrice: null, trades: [], whaleFilter: 'all',
 };
 const PROXY = '/api/proxy';
 
@@ -646,20 +664,57 @@ function addTrade(msg) {
   const trade={symbol:msg.symbol,price:parseFloat(msg.price),size:parseFloat(msg.size),side:msg.side,time:msg.timestamp,notional:parseFloat(msg.price)*parseFloat(msg.size)};
   S.trades.unshift(trade);
   if(S.trades.length>200)S.trades.pop();
-  $('whaleCount').textContent=S.trades.length;
+  updateWhaleCount();
   renderTrades();
+}
+
+function setWhaleFilter(f) {
+  S.whaleFilter=f;
+  document.querySelectorAll('.whale-ftog').forEach(b=>b.classList.remove('on'));
+  (f==='all'?$('wAll'):$('wBig')).classList.add('on');
+  renderTrades();
+}
+
+function updateWhaleCount() {
+  const total=S.trades.length;
+  const buys=S.trades.filter(t=>t.side==='buy').length;
+  const sells=total-buys;
+  $('whaleCount').textContent=total+' ('+buys+'B/'+sells+'S)';
+}
+
+function fmtUSD(v) {
+  if(v>=100000)return '$'+(v/1000).toFixed(0)+'K';
+  if(v>=10000)return '$'+(v/1000).toFixed(1)+'K';
+  if(v>=1000)return '$'+(v/1000).toFixed(1)+'K';
+  return '$'+v.toFixed(0);
+}
+
+function parseTradeSymbol(sym) {
+  const parts=sym.split('-');
+  if(parts.length<4)return{underlying:sym,strike:0,isCall:true,expStr:'—'};
+  return{underlying:parts[0],strike:parseFloat(parts[2]),isCall:parts[3]==='C',expStr:parts[1]};
+}
+
+function fmtStrike(raw) {
+  if(raw>=1000000)return (raw/1000000).toFixed(0)+'M';
+  if(raw>=1000){const k=raw/1000;if(k%1===0)return k.toFixed(0)+'K';return k.toFixed(raw<10000?1:0)+'K';}
+  return raw.toFixed(0);
 }
 
 function renderTrades() {
   const el=$('whaleFeed');
   if(S.trades.length===0)return;
-  el.innerHTML=S.trades.slice(0,20).map(t=>{
+  let visible=S.trades.slice(0,50);
+  if(S.whaleFilter==='whales')visible=visible.filter(t=>t.notional>=10000);
+  if(visible.length===0){el.innerHTML='<div class="empty" style="padding:16px"><div class="empty-m">No whale trades yet — filter set to &gt;$10K</div></div>';return;}
+  el.innerHTML=visible.map(t=>{
     const big=t.notional>10000?' big':'';
+    const p=parseTradeSymbol(t.symbol);
+    const instLabel=p.underlying+' '+fmtStrike(p.strike)+' '+(p.isCall?'Call':'Put');
+    const instClass=p.isCall?'call':'put';
     const d=new Date(t.time);
     const timeStr=d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    const parts=t.symbol.split('-');
-    const short=parts.length>=4?parts[2]+'-'+parts[3]:t.symbol;
-    return '<div class="whale-item'+big+'"><span class="whale-side '+t.side+'">'+t.side.toUpperCase()+'</span><span class="whale-sym">'+short+'</span><span class="whale-sz">'+t.size.toFixed(2)+' @ $'+t.price.toFixed(2)+'</span><span class="whale-time">'+timeStr+'</span></div>';
+    return '<div class="whale-item'+big+'"><span class="whale-under '+p.underlying+'">'+p.underlying+'</span><span class="whale-inst '+instClass+'">'+instLabel+'</span><span class="whale-side '+t.side+'">'+t.side.toUpperCase()+'</span><span class="whale-sz">'+t.size.toFixed(2)+' @ $'+t.price.toFixed(2)+'</span><span class="whale-notional">'+fmtUSD(t.notional)+'</span><span class="whale-time">'+timeStr+'</span></div>';
   }).join('');
 }
 
