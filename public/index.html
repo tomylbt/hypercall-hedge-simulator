@@ -532,36 +532,40 @@ function updateSummaryAt(price) {
 
 function generateHedgeExplain(r,hedgeCost) {
   const el=$('hedgeExplain');
-  const dir=S.dir==='long'?'long':'short';
-  const dirWord=S.dir==='long'?'long':'short';
   const absSize=Math.abs(S.size);
   const entry=S.entry;
   const price=S.currentPrice||entry;
-  const hasOptions=S.selected.size>0;
 
-  let puts=[],calls=[];
+  let puts=[],calls=[],totalPremium=0;
   S.selected.forEach(({option,qty})=>{
     const premium=option.ask_price>0?option.ask_price:(option.mark_price||0);
-    if(option.type==='put')puts.push({strike:option.strike,premium,qty});
-    else calls.push({strike:option.strike,premium,qty});
+    const item={strike:option.strike,premium:premium*qty,qty};
+    totalPremium+=premium*qty;
+    if(option.type==='put')puts.push(item);
+    else calls.push(item);
   });
 
-  let s='';
+  let s='',protectedAmt=0;
 
   if(S.dir==='long') {
-    s='You\'re long '+absSize+' BTC from $'+entry.toLocaleString()+'. ';
+    s='You\'re long '+absSize+' '+S.asset+' from $'+entry.toLocaleString()+'. ';
 
     if(puts.length>0) {
-      const p=puts[0];
-      const maxLoss=(entry-p.strike)*absSize+p.premium*absSize;
-      const breakeven=entry+p.premium;
-      s+='Protected by a $'+p.strike.toLocaleString()+' put costing $'+(p.premium*absSize).toFixed(0)+'. ';
-      s+='Maximum loss capped at $'+maxLoss.toLocaleString(undefined,{maximumFractionDigits:0})+' (drop to strike + premium). ';
+      const strikes=puts.map(p=>'$'+p.strike.toLocaleString()).join(' and a $');
+      s+='Protected by a $'+strikes+' put';
+      if(puts.length>1)s+='s';
+      s+=' costing $'+Math.round(totalPremium).toLocaleString()+' total. ';
+      const lowestStrike=Math.min(...puts.map(p=>p.strike));
+      protectedAmt=(entry-lowestStrike)*absSize;
+      const maxLoss=entry*absSize-lowestStrike*absSize+totalPremium;
+      const breakeven=entry+totalPremium/absSize;
+      s+='Maximum loss capped at $'+maxLoss.toLocaleString(undefined,{maximumFractionDigits:0})+' (drop to '+lowestStrike.toLocaleString()+' strike + premium). ';
       s+='Profitable above $'+breakeven.toLocaleString(undefined,{maximumFractionDigits:0})+' after covering hedge cost.';
     } else if(calls.length>0) {
       const c=calls[0];
-      s+='You sold a $'+c.strike.toLocaleString()+' call collecting $'+(c.premium*absSize).toFixed(0)+'. ';
-      s+='Gains are capped above $'+c.strike.toLocaleString()+' — you keep the premium either way.';
+      s+='You sold a $'+calls[0].strike.toLocaleString()+' call collecting $'+calls.reduce((a,c)=>a+c.premium,0).toFixed(0)+'. ';
+      const cappedStrike=Math.max(...calls.map(c=>c.strike));
+      s+='Gains are capped above $'+cappedStrike.toLocaleString()+' — you keep the premium either way.';
     } else {
       s+='Without any hedge, your downside is unlimited. ';
       if(price&&price>0) {
@@ -571,17 +575,25 @@ function generateHedgeExplain(r,hedgeCost) {
       }
     }
   } else {
-    s='You\'re short '+absSize+' BTC from $'+entry.toLocaleString()+'. ';
+    s='You\'re short '+absSize+' '+S.asset+' from $'+entry.toLocaleString()+'. ';
 
     if(calls.length>0) {
       const c=calls[0];
-      const maxLoss=(c.strike-entry)*absSize+c.premium*absSize;
-      s+='Protected by a $'+c.strike.toLocaleString()+' call costing $'+(c.premium*absSize).toFixed(0)+'. ';
-      s+='If '+S.asset+' rallies past $'+c.strike.toLocaleString()+', your call offsets further losses.';
+      const strikes=calls.map(c=>'$'+c.strike.toLocaleString()).join(' and a $');
+      s+='Protected by a $'+strikes+' call';
+      if(calls.length>1)s+='s';
+      const totalCallPrem=calls.reduce((a,c)=>a+c.premium,0);
+      s+=' costing $'+Math.round(totalCallPrem).toLocaleString()+' total. ';
+      const highestStrike=Math.max(...calls.map(c=>c.strike));
+      protectedAmt=(highestStrike-entry)*absSize;
+      s+='If '+S.asset+' rallies past $'+highestStrike.toLocaleString()+', your call offsets further losses.';
     } else if(puts.length>0) {
-      const p=puts[0];
-      s+='You sold a $'+p.strike.toLocaleString()+' put collecting $'+(p.premium*absSize).toFixed(0)+'. ';
-      s+='Gains are capped below $'+p.strike.toLocaleString()+' — you keep the premium either way.';
+      const totalPutPrem=puts.reduce((a,p)=>a+p.premium,0);
+      const highestStrike=Math.max(...puts.map(p=>p.strike));
+      s+='You sold a $'+highestStrike.toLocaleString()+' put';
+      if(puts.length>1)s+='s';
+      s+=' collecting $'+Math.round(totalPutPrem).toLocaleString()+'. ';
+      s+='Warning: this increases your downside risk — if '+S.asset+' drops below $'+highestStrike.toLocaleString()+' you face losses on both the short and the put.';
     } else {
       s+='Without any hedge, your upside risk is unlimited. ';
       if(price&&price>0) {
@@ -592,9 +604,10 @@ function generateHedgeExplain(r,hedgeCost) {
     }
   }
 
-  if(hedgeCost>0) {
-    const breakAbove=entry+hedgeCost/absSize;
-    s+=' Hedge cost: $'+hedgeCost.toFixed(0)+' — breakeven moves to $'+breakAbove.toLocaleString(undefined,{maximumFractionDigits:0})+'.';
+  if(protectedAmt>0&&totalPremium>0) {
+    const ratio=(totalPremium/protectedAmt)*100;
+    const label=ratio<10?'efficient hedge':ratio<20?'moderate cost':'expensive hedge';
+    s+=' This hedge protects $'+Math.round(protectedAmt).toLocaleString()+' for $'+Math.round(totalPremium).toLocaleString()+' ('+ratio.toFixed(1)+'% cost — '+label+').';
   }
 
   el.textContent=s;
