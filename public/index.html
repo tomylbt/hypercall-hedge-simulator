@@ -256,18 +256,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
       </section>
       <section class="card">
         <div class="card-hd">
-          <span class="card-t">Whale Trades</span>
+          <span class="card-t">Whale Alerts</span>
           <span class="badge" id="whaleCount">0</span>
         </div>
         <div class="whale-filter">
-          <button class="whale-ftog on" id="wAll" onclick="setWhaleFilter('all')">All Trades</button>
-          <button class="whale-ftog" id="wBig" onclick="setWhaleFilter('whales')">Whales Only (&gt;$10K)</button>
+          <button class="whale-ftog on" id="w5K" onclick="setWhaleThreshold(5000)">$5K+</button>
+          <button class="whale-ftog" id="w10K" onclick="setWhaleThreshold(10000)">$10K+</button>
+          <button class="whale-ftog" id="w50K" onclick="setWhaleThreshold(50000)">$50K+</button>
         </div>
         <div class="whale-feed" id="whaleFeed">
-          <div class="empty">
+          <div class="empty" id="emptyWhale">
             <div class="empty-icon">🐋</div>
-            <div class="empty-t">Waiting for trades…</div>
-            <div class="empty-m">Live trades appear here via WebSocket.</div>
+            <div class="empty-t">No whale trades detected yet</div>
+            <div class="empty-m">Monitoring for trades above $5K…</div>
           </div>
         </div>
       </section>
@@ -281,7 +282,7 @@ const S = {
   asset: 'BTC', dir: 'long', size: 1, entry: 68000,
   currentPrice: null, options: [], selected: new Map(),
   filter: 'auto', expiry: null, expiries: [],
-  scenarioPrice: null, trades: [], whaleFilter: 'all',
+  scenarioPrice: null, trades: [], whaleThreshold: 5000,
 };
 const PROXY = '/api/proxy';
 
@@ -668,10 +669,12 @@ function addTrade(msg) {
   renderTrades();
 }
 
-function setWhaleFilter(f) {
-  S.whaleFilter=f;
+function setWhaleThreshold(val) {
+  S.whaleThreshold=val;
   document.querySelectorAll('.whale-ftog').forEach(b=>b.classList.remove('on'));
-  (f==='all'?$('wAll'):$('wBig')).classList.add('on');
+  if(val<=5000)$('w5K').classList.add('on');
+  else if(val<=10000)$('w10K').classList.add('on');
+  else $('w50K').classList.add('on');
   renderTrades();
 }
 
@@ -679,7 +682,8 @@ function updateWhaleCount() {
   const total=S.trades.length;
   const buys=S.trades.filter(t=>t.side==='buy').length;
   const sells=total-buys;
-  $('whaleCount').textContent=total+' ('+buys+'B/'+sells+'S)';
+  const shown=S.trades.filter(t=>t.notional>=S.whaleThreshold).length;
+  $('whaleCount').textContent=shown+' ('+buys+'B/'+sells+'S)';
 }
 
 function fmtUSD(v) {
@@ -705,8 +709,8 @@ function renderTrades() {
   const el=$('whaleFeed');
   if(S.trades.length===0)return;
   let visible=S.trades.slice(0,50);
-  if(S.whaleFilter==='whales')visible=visible.filter(t=>t.notional>=10000);
-  if(visible.length===0){el.innerHTML='<div class="empty" style="padding:16px"><div class="empty-m">No whale trades yet — filter set to &gt;$10K</div></div>';return;}
+  visible=visible.filter(t=>t.notional>=S.whaleThreshold);
+  if(visible.length===0){el.innerHTML='<div class="empty" style="padding:16px"><div class="empty-m">'+S.trades.length+' trades captured — none above $'+(S.whaleThreshold/1000)+'K threshold</div></div>';return;}
   el.innerHTML=visible.map(t=>{
     const big=t.notional>10000?' big':'';
     const p=parseTradeSymbol(t.symbol);
