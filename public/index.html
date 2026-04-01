@@ -126,6 +126,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
 .gk{background:var(--bg-1);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
 .gk-label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
 .gk-val{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.gk-explain{font-size:10px;color:var(--t3);margin-top:4px}
 .whale-feed{max-height:300px;overflow-y:auto}
 .whale-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg-2);border-radius:4px;margin-bottom:4px;font-size:12px;border-left:3px solid transparent}
 .whale-item.big{border-left-color:var(--accent);background:var(--accent-glow)}
@@ -231,10 +232,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
       <section class="card">
         <div class="card-hd"><span class="card-t">Position Greeks</span></div>
         <div class="greeks">
-          <div class="gk"><div class="gk-label">Delta (Δ)</div><div class="gk-val" id="gDelta">—</div></div>
-          <div class="gk"><div class="gk-label">Gamma (Γ)</div><div class="gk-val" id="gGamma">—</div></div>
-          <div class="gk"><div class="gk-label">Theta (Θ)</div><div class="gk-val" id="gTheta">—</div></div>
-          <div class="gk"><div class="gk-label">Vega (ν)</div><div class="gk-val" id="gVega">—</div></div>
+          <div class="gk"><div class="gk-label">Delta (Δ)</div><div class="gk-val" id="gDelta">—</div><div class="gk-explain" id="gDeltaEx"></div></div>
+          <div class="gk"><div class="gk-label">Gamma (Γ)</div><div class="gk-val" id="gGamma">—</div><div class="gk-explain" id="gGammaEx"></div></div>
+          <div class="gk"><div class="gk-label">Theta (Θ)</div><div class="gk-val" id="gTheta">—</div><div class="gk-explain" id="gThetaEx"></div></div>
+          <div class="gk"><div class="gk-label">Vega (ν)</div><div class="gk-val" id="gVega">—</div><div class="gk-explain" id="gVegaEx"></div></div>
         </div>
       </section>
       <section class="card">
@@ -517,6 +518,16 @@ function updateGreeks(atPrice) {
     totalDelta+=g.delta*qty; totalGamma+=g.gamma*qty; totalTheta+=g.theta*qty; totalVega+=g.vega*qty;
   });
   setGk('gDelta',totalDelta,4); setGk('gGamma',totalGamma,6); setGk('gTheta',totalTheta,2); setGk('gVega',totalVega,2);
+  const absDelta=Math.abs(totalDelta);
+  $('gDeltaEx').textContent=totalDelta>=0
+    ?'Your position gains ~$'+absDelta.toFixed(2)+' for every $1 '+S.asset+' moves up'
+    :'Your position loses ~$'+absDelta.toFixed(2)+' for every $1 '+S.asset+' moves up';
+  const absGamma=Math.abs(totalGamma);
+  $('gGammaEx').textContent='Your delta changes by '+absGamma.toFixed(5)+' per $1 price move — '+(absGamma>0.001?'high':'low')+' curvature';
+  const absTheta=Math.abs(totalTheta);
+  $('gThetaEx').textContent='You lose ~$'+absTheta.toFixed(2)+' per day from time decay';
+  const absVega=Math.abs(totalVega);
+  $('gVegaEx').textContent='A 1% rise in implied volatility adds ~$'+absVega.toFixed(2)+' to your position';
 }
 
 function setGk(id,val,dec) {
