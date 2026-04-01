@@ -778,7 +778,7 @@ function renderTrades() {
   }).join('');
 }
 
-$('inAsset').addEventListener('change', async e=>{S.asset=e.target.value;S.options=[];S.selected.clear();S.trades=[];renderOptions();renderTrades();try{const data=await fetchJSON('options-summary',{currency:S.asset});if(data.result&&data.result[0]&&data.result[0].underlying_price){S.currentPrice=parseFloat(data.result[0].underlying_price);S.entry=Math.round(S.currentPrice);$('inEntry').value=S.entry;updateLivePrice();}}catch(e){}updateAll();});
+$('inAsset').addEventListener('change', async e=>{S.asset=e.target.value;S.options=[];S.selected.clear();S.trades=[];renderOptions();renderTrades();$('inEntry').value='...';try{const data=await fetchJSON('options-summary',{currency:S.asset});if(data.result&&data.result[0]&&data.result[0].underlying_price){S.currentPrice=parseFloat(data.result[0].underlying_price);S.entry=Math.round(S.currentPrice);$('inEntry').value=S.entry;updateLivePrice();}}catch(e){}if(!S.currentPrice){try{const mkts=await fetchJSON('markets');if(mkts.success&&mkts.data){const match=mkts.data.find(m=>m.underlying===S.asset);if(match&&match.index_price){S.currentPrice=parseFloat(match.index_price);S.entry=Math.round(S.currentPrice);$('inEntry').value=S.entry;updateLivePrice();}}}catch(e2){}}updateAll();});
 $('inSize').addEventListener('input',e=>{S.size=parseFloat(e.target.value)||0;updateAll();});
 $('inEntry').addEventListener('input',e=>{S.entry=parseFloat(e.target.value)||0;updateAll();});
 
