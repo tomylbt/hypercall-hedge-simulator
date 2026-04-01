@@ -395,7 +395,7 @@ async function loadOptions() {
     S.expiry=S.expiries[0]||null;
     renderExpiryTabs(); renderOptions(); updateAll(); resetScenario();
     line.className='api-line ok';
-    line.textContent='Loaded '+S.options.length+' options · BTC $'+(S.currentPrice?.toLocaleString()||'?');
+    line.textContent='Loaded '+S.options.length+' options · '+S.asset+' $'+(S.currentPrice?.toLocaleString()||'?');
   } catch(e) {
     console.error('Load failed:',e);
     line.className='api-line err';
