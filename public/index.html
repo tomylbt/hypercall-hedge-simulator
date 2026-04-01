@@ -645,7 +645,7 @@ function handleWS(msg) {
 function addTrade(msg) {
   const trade={symbol:msg.symbol,price:parseFloat(msg.price),size:parseFloat(msg.size),side:msg.side,time:msg.timestamp,notional:parseFloat(msg.price)*parseFloat(msg.size)};
   S.trades.unshift(trade);
-  if(S.trades.length>50)S.trades.pop();
+  if(S.trades.length>200)S.trades.pop();
   $('whaleCount').textContent=S.trades.length;
   renderTrades();
 }
@@ -663,7 +663,7 @@ function renderTrades() {
   }).join('');
 }
 
-$('inAsset').addEventListener('change',e=>{S.asset=e.target.value;S.options=[];S.selected.clear();renderOptions();updateAll();});
+$('inAsset').addEventListener('change',e=>{S.asset=e.target.value;S.options=[];S.selected.clear();S.trades=[];renderOptions();renderTrades();updateAll();});
 $('inSize').addEventListener('input',e=>{S.size=parseFloat(e.target.value)||0;updateAll();});
 $('inEntry').addEventListener('input',e=>{S.entry=parseFloat(e.target.value)||0;updateAll();});
 
