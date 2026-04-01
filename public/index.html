@@ -107,6 +107,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
 .sum-r.tot .sum-v{color:var(--accent);font-size:15px}
 .pos{color:var(--green)!important}
 .neg{color:var(--red)!important}
+.hedge-explain{background:var(--bg-3);border-radius:6px;padding:12px;margin-top:12px;font-size:12px;color:var(--t2);line-height:1.6}
 .chart-wrap{background:var(--bg-1);border:1px solid var(--border);border-radius:var(--r);padding:18px;min-height:360px;display:flex;flex-direction:column}
 .chart-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .chart-t{font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em}
@@ -212,6 +213,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--t1);min
           <div class="sum-r"><span class="sum-l">Max downside</span><span class="sum-v" id="sMaxDown">—</span></div>
           <div class="sum-r tot"><span class="sum-l">Net exposure</span><span class="sum-v" id="sNet">—</span></div>
         </div>
+        <div class="hedge-explain" id="hedgeExplain"></div>
       </section>
     </div>
     <div class="col">
@@ -506,6 +508,77 @@ function updateSummaryAt(price) {
   const netEl=$('sNet');
   netEl.textContent=fmt$(r.combined);
   netEl.className='sum-v '+(r.combined>=0?'pos':'neg');
+  generateHedgeExplain(r,hedgeCost);
+}
+
+function generateHedgeExplain(r,hedgeCost) {
+  const el=$('hedgeExplain');
+  const dir=S.dir==='long'?'long':'short';
+  const dirWord=S.dir==='long'?'long':'short';
+  const absSize=Math.abs(S.size);
+  const entry=S.entry;
+  const price=S.currentPrice||entry;
+  const hasOptions=S.selected.size>0;
+
+  let puts=[],calls=[];
+  S.selected.forEach(({option,qty})=>{
+    const premium=option.ask_price>0?option.ask_price:(option.mark_price||0);
+    if(option.type==='put')puts.push({strike:option.strike,premium,qty});
+    else calls.push({strike:option.strike,premium,qty});
+  });
+
+  let s='';
+
+  if(S.dir==='long') {
+    s='You\'re long '+absSize+' BTC from $'+entry.toLocaleString()+'. ';
+
+    if(puts.length>0) {
+      const p=puts[0];
+      const maxLoss=(entry-p.strike)*absSize+p.premium*absSize;
+      const breakeven=entry+p.premium;
+      s+='Protected by a $'+p.strike.toLocaleString()+' put costing $'+(p.premium*absSize).toFixed(0)+'. ';
+      s+='Maximum loss capped at $'+maxLoss.toLocaleString(undefined,{maximumFractionDigits:0})+' (drop to strike + premium). ';
+      s+='Profitable above $'+breakeven.toLocaleString(undefined,{maximumFractionDigits:0})+' after covering hedge cost.';
+    } else if(calls.length>0) {
+      const c=calls[0];
+      s+='You sold a $'+c.strike.toLocaleString()+' call collecting $'+(c.premium*absSize).toFixed(0)+'. ';
+      s+='Gains are capped above $'+c.strike.toLocaleString()+' — you keep the premium either way.';
+    } else {
+      s+='Without any hedge, your downside is unlimited. ';
+      if(price&&price>0) {
+        const drop10=Math.round(price*0.9);
+        const loss10=(entry-drop10)*absSize;
+        s+='If '+S.asset+' drops to $'+drop10.toLocaleString()+' you lose $'+Math.abs(loss10).toLocaleString(undefined,{maximumFractionDigits:0})+'.';
+      }
+    }
+  } else {
+    s='You\'re short '+absSize+' BTC from $'+entry.toLocaleString()+'. ';
+
+    if(calls.length>0) {
+      const c=calls[0];
+      const maxLoss=(c.strike-entry)*absSize+c.premium*absSize;
+      s+='Protected by a $'+c.strike.toLocaleString()+' call costing $'+(c.premium*absSize).toFixed(0)+'. ';
+      s+='If '+S.asset+' rallies past $'+c.strike.toLocaleString()+', your call offsets further losses.';
+    } else if(puts.length>0) {
+      const p=puts[0];
+      s+='You sold a $'+p.strike.toLocaleString()+' put collecting $'+(p.premium*absSize).toFixed(0)+'. ';
+      s+='Gains are capped below $'+p.strike.toLocaleString()+' — you keep the premium either way.';
+    } else {
+      s+='Without any hedge, your upside risk is unlimited. ';
+      if(price&&price>0) {
+        const rally10=Math.round(price*1.1);
+        const loss10=(rally10-entry)*absSize;
+        s+='If '+S.asset+' rallies to $'+rally10.toLocaleString()+' you lose $'+Math.abs(loss10).toLocaleString(undefined,{maximumFractionDigits:0})+'.';
+      }
+    }
+  }
+
+  if(hedgeCost>0) {
+    const breakAbove=entry+hedgeCost/absSize;
+    s+=' Hedge cost: $'+hedgeCost.toFixed(0)+' — breakeven moves to $'+breakAbove.toLocaleString(undefined,{maximumFractionDigits:0})+'.';
+  }
+
+  el.textContent=s;
 }
 
 function updateGreeks(atPrice) {
