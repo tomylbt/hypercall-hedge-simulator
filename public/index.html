@@ -710,7 +710,7 @@ function renderTrades() {
   el.innerHTML=visible.map(t=>{
     const big=t.notional>10000?' big':'';
     const p=parseTradeSymbol(t.symbol);
-    const instLabel=p.underlying+' '+fmtStrike(p.strike)+' '+(p.isCall?'Call':'Put');
+    const instLabel=p.underlying+' '+fmtStrike(p.strike)+' '+(p.isCall?'Call':'Put')+' · '+fmtExpiryStr(p.expStr);
     const instClass=p.isCall?'call':'put';
     const d=new Date(t.time);
     const timeStr=d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
