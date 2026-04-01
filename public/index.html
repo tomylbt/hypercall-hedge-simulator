@@ -630,9 +630,9 @@ function updateGreeks(atPrice) {
   const absGamma=Math.abs(totalGamma);
   $('gGammaEx').textContent='Your delta changes by '+absGamma.toFixed(5)+' per $1 price move — '+(absGamma>0.001?'high':'low')+' curvature';
   const absTheta=Math.abs(totalTheta);
-  $('gThetaEx').textContent='You lose ~$'+absTheta.toFixed(2)+' per day from time decay';
+  $('gThetaEx').textContent=totalTheta<-0.005?'You lose ~$'+absTheta.toFixed(2)+' per day from time decay':totalTheta>0.005?'You earn ~$'+absTheta.toFixed(2)+' per day from time decay':'Minimal time decay impact';
   const absVega=Math.abs(totalVega);
-  $('gVegaEx').textContent='A 1% rise in implied volatility adds ~$'+absVega.toFixed(2)+' to your position';
+  $('gVegaEx').textContent=totalVega>0.005?'A 1% rise in IV adds ~$'+absVega.toFixed(2)+' to your position':totalVega<-0.005?'A 1% rise in IV costs ~$'+absVega.toFixed(2)+' from your position':'Minimal volatility exposure';
 }
 
 function setGk(id,val,dec) {
